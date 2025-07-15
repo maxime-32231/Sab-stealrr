@@ -1,0 +1,252 @@
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
+
+-- Anti-detection measures
+local function obfuscateFunction(func)
+    local bytecode = string.dump(func, true)
+    local key = HttpService:GenerateGUID(false)
+    local obfuscated = ""
+    for i = 1, #bytecode do
+        obfuscated = obfuscated .. string.char(bit32.bxor(string.byte(bytecode, i), string.byte(key, (i % #key) + 1)))
+    end
+    return function(...)
+        local deobfuscated = ""
+        for i = 1, #obfuscated do
+            deobfuscated = deobfuscated .. string.char(bit32.bxor(string.byte(obfuscated, i), string.byte(key, (i % #key) + 1)))
+        end
+        return loadstring(deobfuscated)(...)
+    end
+end
+
+-- Secure environment
+local function secureCall(func, ...)
+    local success, result = pcall(func, ...)
+    if not success then
+        warn("Secure call failed: " .. tostring(result))
+    end
+    return result
+end
+
+-- GUI setup
+local player = Players.LocalPlayer
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = HttpService:GenerateGUID(false) -- Random name to avoid detection
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+-- Key input GUI
+local keyFrame = Instance.new("Frame")
+keyFrame.Size = UDim2.new(0, 300, 0, 200)
+keyFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+keyFrame.BorderSizePixel = 0
+keyFrame.Parent = screenGui
+
+local keyCorner = Instance.new("UICorner")
+keyCorner.CornerRadius = UDim.new(0, 10)
+keyCorner.Parent = keyFrame
+
+local keyTextBox = Instance.new("TextBox")
+keyTextBox.Size = UDim2.new(0.8, 0, 0.2, 0)
+keyTextBox.Position = UDim2.new(0.1, 0, 0.2, 0)
+keyTextBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+keyTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyTextBox.PlaceholderText = "Enter key here"
+keyTextBox.Text = ""
+keyTextBox.Parent = keyFrame
+
+local textBoxCorner = Instance.new("UICorner")
+textBoxCorner.CornerRadius = UDim.new(0, 5)
+textBoxCorner.Parent = keyTextBox
+
+local checkKeyButton = Instance.new("TextButton")
+checkKeyButton.Size = UDim2.new(0.35, 0, 0.15, 0)
+checkKeyButton.Position = UDim2.new(0.1, 0, 0.5, 0)
+checkKeyButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+checkKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+checkKeyButton.Text = "Check Key"
+checkKeyButton.Parent = keyFrame
+
+local checkButtonCorner = Instance.new("UICorner")
+checkButtonCorner.CornerRadius = UDim.new(0, 5)
+checkButtonCorner.Parent = checkKeyButton
+
+local getKeyButton = Instance.new("TextButton")
+getKeyButton.Size = UDim2.new(0.35, 0, 0.15, 0)
+getKeyButton.Position = UDim2.new(0.55, 0, 0.5, 0)
+getKeyButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+getKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+getKeyButton.Text = "Get Key"
+getKeyButton.Parent = keyFrame
+
+local getButtonCorner = Instance.new("UICorner")
+getButtonCorner.CornerRadius = UDim.new(0, 5)
+getButtonCorner.Parent = getKeyButton
+
+-- Main GUI
+local mainGui = Instance.new("Frame")
+mainGui.Size = UDim2.new(0, 250, 0, 300)
+mainGui.Position = UDim2.new(0.5, -125, 0.5, -150)
+mainGui.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainGui.BorderSizePixel = 0
+mainGui.Visible = false
+mainGui.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainGui
+
+local tpUpButton = Instance.new("TextButton")
+tpUpButton.Size = UDim2.new(0.8, 0, 0.15, 0)
+tpUpButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+tpUpButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+tpUpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpUpButton.Text = "TP Up"
+tpUpButton.Parent = mainGui
+
+local tpUpCorner = Instance.new("UICorner")
+tpUpCorner.CornerRadius = UDim.new(0, 5)
+tpUpCorner.Parent = tpUpButton
+
+local tpDownButton = Instance.new("TextButton")
+tpDownButton.Size = UDim2.new(0.8, 0, 0.15, 0)
+tpDownButton.Position = UDim2.new(0.1, 0, 0.4, 0)
+tpDownButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+tpDownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpDownButton.Text = "TP Down"
+tpDownButton.Parent = mainGui
+tpDownButton.Visible = false -- Initially hidden until TP Up is used
+
+local tpDownCorner = Instance.new("UICorner")
+tpDownCorner.CornerRadius = UDim.new(0, 5)
+tpDownCorner.Parent = tpDownButton
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0, 10, 0, 10)
+toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = ""
+toggleButton.Parent = screenGui
+toggleButton.Visible = false
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0) -- Circular button
+toggleCorner.Parent = toggleButton
+
+-- Popup for wrong key
+local function showPopup(message)
+    local popup = Instance.new("Frame")
+    popup.Size = UDim2.new(0, 200, 0, 100)
+    popup.Position = UDim2.new(0.5, -100, 0.5, -50)
+    popup.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    popup.Parent = screenGui
+
+    local popupCorner = Instance.new("UICorner")
+    popupCorner.CornerRadius = UDim.new(0, 10)
+    popupCorner.Parent = popup
+
+    local popupText = Instance.new("TextLabel")
+    popupText.Size = UDim2.new(0.9, 0, 0.5, 0)
+    popupText.Position = UDim2.new(0.05, 0, 0.25, 0)
+    popupText.BackgroundTransparency = 1
+    popupText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    popupText.Text = message
+    popupText.TextScaled = true
+    popupText.Parent = popup
+
+    wait(2)
+    popup:Destroy()
+end
+
+-- Anti-detection: Hook detection functions
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if method == "Kick" or method == "InvokeServer" or method == "FireServer" then
+        if self.Name:find(HttpService:GenerateGUID(false)) then
+            return
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- Teleport logic
+local isTeleportedUp = false
+local originalPosition = nil
+
+local function teleportUp()
+    secureCall(function()
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            originalPosition = character.HumanoidRootPart.Position
+            local newPosition = originalPosition + Vector3.new(0, 50, 0) -- Moderate height
+            character.HumanoidRootPart.CFrame = CFrame.new(newPosition)
+            isTeleportedUp = true
+            tpDownButton.Visible = true
+        end
+    end)
+end
+
+local function teleportDown()
+    secureCall(function()
+        if isTeleportedUp and originalPosition then
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = CFrame.new(originalPosition)
+                isTeleportedUp = false
+                tpDownButton.Visible = false
+            end
+        end
+    end)
+end
+
+-- Button connections
+getKeyButton.MouseButton1Click:Connect(obfuscateFunction(function()
+    secureCall(function()
+        setclipboard("https://discord.gg/EXK4dQxJBv")
+        showPopup("Link copied to clipboard!")
+    end)
+end))
+
+checkKeyButton.MouseButton1Click:Connect(obfuscateFunction(function()
+    secureCall(function()
+        if keyTextBox.Text == "maxi hub" then
+            keyFrame.Visible = false
+            mainGui.Visible = true
+            toggleButton.Visible = true
+        else
+            showPopup("Wrong key")
+        end
+    end)
+end))
+
+tpUpButton.MouseButton1Click:Connect(obfuscateFunction(teleportUp))
+tpDownButton.MouseButton1Click:Connect(obfuscateFunction(teleportDown))
+
+toggleButton.MouseButton1Click:Connect(obfuscateFunction(function()
+    secureCall(function()
+        mainGui.Visible = not mainGui.Visible
+    end)
+end))
+
+-- Anti-detection: Randomize GUI properties
+local function randomizeGuiProperties()
+    local random = Random.new()
+    keyFrame.Name = HttpService:GenerateGUID(false)
+    mainGui.Name = HttpService:GenerateGUID(false)
+    toggleButton.Name = HttpService:GenerateGUID(false)
+end
+
+randomizeGuiProperties()
+
+-- Anti-detection: Periodic cleanup
+spawn(function()
+    while true do
+        wait(60)
+        secureCall(randomizeGuiProperties)
+    end
+end)
